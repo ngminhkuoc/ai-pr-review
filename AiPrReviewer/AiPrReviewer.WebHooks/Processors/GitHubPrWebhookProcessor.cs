@@ -8,10 +8,6 @@ using Octokit.Internal;
 using Octokit.Webhooks;
 using Octokit.Webhooks.Events;
 using Octokit.Webhooks.Events.PullRequest;
-using Octokit.Webhooks.Events.PullRequestReview;
-using Octokit.Webhooks.Events.PullRequestReviewComment;
-using Octokit.Webhooks.Events.PullRequestReviewThread;
-using PullRequestReviewEvent = Octokit.Webhooks.Events.PullRequestReviewEvent;
 
 namespace AiPrReviewer.WebHooks.Processors;
 
