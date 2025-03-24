@@ -1,13 +1,12 @@
-using System.Net.Http.Headers;
 using System.Text;
+using AiPrReviewer.WebHooks.Processors;
 using AiPrReviewer.WebHooks.Services.AiReviewers;
-using AiPrReviewer.WebHooks.Services.Externals.GitHub;
 using AiPrReviewer.WebHooks.Services.Externals.GitHub.Models;
 using Microsoft.AspNetCore.Diagnostics;
-using Microsoft.Extensions.Http.Resilience;
 using NLog;
 using NLog.Web;
-using Polly;
+using Octokit.Webhooks;
+using Octokit.Webhooks.AspNetCore;
 using Refit;
 using static System.Net.Mime.MediaTypeNames;
 
@@ -18,28 +17,28 @@ internal static class Program
         var logger = LogManager.Setup().LoadConfigurationFromAppSettings().GetCurrentClassLogger();
         var builder = WebApplication.CreateBuilder(args);
 
-        builder.AddServiceDefaults();
+        builder.Logging.ClearProviders();
+        builder.Host.UseNLog();
 
         // Add services to the container.
         var services = builder.Services;
         var configuration = builder.Configuration;
 
         services.AddControllers();
-
         services
             .AddGitHubApi(configuration)
-            .AddScoped<ICodeReviewService, AiCodeReviewService>();
+            .AddSingleton<ICodeReviewService, AiCodeReviewService>();
+
+        services.AddHttpClient();
 
         var app = builder.Build();
 
-        app.MapDefaultEndpoints();
-
-        // Configure the HTTP request pipeline.
         app.UseHttpsRedirection();
-
         app.UseRouting();
-
-        app.MapControllers();
+        app.UseEndpoints(endpoints =>
+        {
+            endpoints.MapGitHubWebhooks("webhooks/github");
+        });
 
         app.UseExceptionHandler(errorApp =>
         {
@@ -54,31 +53,31 @@ internal static class Program
         var configurationSection = configuration.GetSection(GitHubApiOptions.Section);
         var gitHubApiOptions = configurationSection.Get<GitHubApiOptions>()!;
         services.Configure<GitHubApiOptions>(configurationSection);
+        services.AddSingleton<WebhookEventProcessor, GitHubPrWebhookProcessor>();
 
-        services
-            .AddRefitClient<IGitHubApiService>()
-            .ConfigureHttpClient(c =>
-            {
-                c.BaseAddress = new Uri(gitHubApiOptions.BaseUrl);
-                c.DefaultRequestHeaders.UserAgent.ParseAdd("AI-PR-Reviewer");
-                c.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("token", gitHubApiOptions.Token);
-            })
-            .AddResilienceHandler("retry-pipeline", builder => builder.AddRetry(
-                new HttpRetryStrategyOptions
-                {
-                    ShouldHandle = args => args.Outcome switch
-                    {
-                        { Exception: ApiException } => PredicateResult.True(),
-                        { Exception: HttpRequestException } => PredicateResult.True(),
-                        { Result: HttpResponseMessage response } when !response.IsSuccessStatusCode => PredicateResult.True(),
-                        _ => PredicateResult.False()
-                    },
-                    UseJitter = true,
-                    BackoffType = DelayBackoffType.Exponential,
-                    MaxRetryAttempts = 5,
-                })
-            );
-
+        //services
+        //    .AddRefitClient<IGitHubApiService>()
+        //    .ConfigureHttpClient(c =>
+        //    {
+        //        c.BaseAddress = new Uri(gitHubApiOptions.BaseUrl);
+        //        c.DefaultRequestHeaders.UserAgent.ParseAdd("AI-PR-Reviewer");
+        //        c.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", gitHubApiOptions.Token);
+        //    })
+        //    .AddResilienceHandler("retry-pipeline", builder => builder.AddRetry(
+        //        new HttpRetryStrategyOptions
+        //        {
+        //            ShouldHandle = args => args.Outcome switch
+        //            {
+        //                { Exception: ApiException } => PredicateResult.True(),
+        //                { Exception: HttpRequestException } => PredicateResult.True(),
+        //                { Result: HttpResponseMessage response } when !response.IsSuccessStatusCode => PredicateResult.True(),
+        //                _ => PredicateResult.False()
+        //            },
+        //            UseJitter = true,
+        //            BackoffType = DelayBackoffType.Exponential,
+        //            MaxRetryAttempts = 5,
+        //        })
+        //    );
 
         return services;
     }

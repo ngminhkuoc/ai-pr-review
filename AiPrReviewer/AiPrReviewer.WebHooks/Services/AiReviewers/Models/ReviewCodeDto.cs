@@ -2,4 +2,5 @@
 
 public record ReviewCodeDto
 {
+    public IList<ReviewingFileDto> Files { get; init; } = [];
 }
