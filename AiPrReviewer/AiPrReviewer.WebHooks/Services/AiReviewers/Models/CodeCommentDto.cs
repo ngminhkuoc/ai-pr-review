@@ -4,6 +4,5 @@ public record CodeCommentDto
 {
     public string FileName { get; init; } = string.Empty;
     public string Comment { get; init; } = string.Empty;
-    public string CommitId { get; init; } = string.Empty;
     public int Position { get; init; }
 }

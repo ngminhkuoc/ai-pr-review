@@ -25,10 +25,10 @@ public class AiCodeReviewService : ICodeReviewService
         {
             var prompt = $$"""
 Review the below code diff with the following rules:
-- response format MUST be Json { "comment": "This is the comment", "fileName": "{{file.FileName}}", "position": 0 } WITHOUT ``` or ```json mark
+- response format MUST be Json { "comment": "This is the comment", "fileName": "{{file.FileName}}", "position": 1 } WITHOUT ``` or ```json mark
 - if the code is bad then give a comment (as an senior developer)
 - if the code is good MUST say LGTM (without any further explanation)
-- postion is the line number of the comment takes place
+- postion is the line number of the comment takes place, minimum value is 1
 - the diff using unified diff format and content as below:
 {{file.Diff}}
 """;
